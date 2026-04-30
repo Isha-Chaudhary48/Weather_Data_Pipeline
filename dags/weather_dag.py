@@ -1,15 +1,22 @@
+
 from airflow.sdk import dag, task
 from pendulum import datetime
 from dotenv import load_dotenv
 import os
 import requests
 import psycopg2
+from supabase import create_client
+
 
 load_dotenv()
 
+
+
 API_KEY = os.getenv("API_KEY")
-CITY = os.getenv("CITY")
 DB_URI = os.getenv("DB_URI")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
 
 
 @dag(
@@ -22,21 +29,49 @@ DB_URI = os.getenv("DB_URI")
 )
 
 def weather_dag_func():
+
     @task
-    def fetch_weather_data():
-       url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=metric"
-       response = requests.get(url)
-       data = response.json()
-       return data
+    def fetch_cities():
+        supabase_cities = create_client(SUPABASE_URL,SUPABASE_KEY)
+        response = supabase_cities.table("cities_india").select("*").execute()
+        cities = response.data
+        return cities
+        
+
+    @task
+    def fetch_weather_data(cities):
+        all_weather = []
+
+        for row in cities:
+            lat = row["latitude"]
+            lon = row["longitude"]
+
+            url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+
+            response = requests.get(url)
+            data = response.json()
+
+            if data.get("cod") != 200:
+                continue
+
+            all_weather.append(data)
+
+        return all_weather
+    
+           
+
+
     
     @task
-    def process_weather_data(data):
-        if data.get('cod') != 200:
-            raise ValueError(f"API FAILED: {data}")
-        weather = data['weather'][0]['description']
-        main = data['main']
-        wind = data['wind']
-        weather_info = {
+    def process_weather_data(all_weather):
+        
+        results = []
+
+        for data in all_weather:
+            weather = data['weather'][0]['description']
+            main = data['main']
+            wind = data['wind']
+            weather_info = {
             'city': data['name'],
             'temperature': main['temp'],
             'humidity':main['humidity'],
@@ -48,15 +83,18 @@ def weather_dag_func():
 
 
         }
-        return weather_info
+            results.append(weather_info)  
+       
+        return results
 
     @task
-    def load_data(data):
+    def load_data(data_list):
         conn = psycopg2.connect(DB_URI)
         cur = conn.cursor()
         try:
-            cur.execute("""
-             INSERT INTO weather_data(city,temperature,humidity,feels_like,wind_speed,heat_index,is_windy,weather)
+            for data in data_list:
+                cur.execute("""
+                INSERT INTO weather_data(city,temperature,humidity,feels_like,wind_speed,heat_index,is_windy,weather)
                     VALUES(%s,%s,%s,%s,%s,%s,%s,%s)                
                     """,(
                         data['city'],
@@ -71,13 +109,15 @@ def weather_dag_func():
                     ))
             conn.commit()
             print("Data inserted")
+            
         
         finally:
              cur.close()
              conn.close()
              print("Data is inserted in the database")
 
-    fetch = fetch_weather_data()
+    cities = fetch_cities()
+    fetch = fetch_weather_data(cities)
     processed = process_weather_data(fetch)
     load_data(processed)
 
