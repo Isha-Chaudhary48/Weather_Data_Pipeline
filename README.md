@@ -2,7 +2,7 @@
 
 ## 📌 About the Project
 
-In this project, I have built a simple data pipeline using Apache Airflow. It fetches weather data from an API, processes it, and stores it into a cloud database (Supabase PostgreSQL).
+In this project, I have built a data pipeline using Apache Airflow. It fetches weather data from an API, processes it, and stores it into a cloud database (Supabase PostgreSQL).
 
 The pipeline runs daily and helps in understanding how real-world data pipelines work.
 
@@ -57,7 +57,7 @@ cd Data_Pipeline_Weather
 
 ```id="6mkl09"
 API_KEY=your_api_key
-CITY=Delhi
+CITIES=[]
 DB_URI=your_database_connection_string
 ```
 
@@ -117,7 +117,6 @@ CREATE TABLE weather_data (
 
 ## 🚀 Future improvements
 
-* Add multiple cities
 * Run tasks in parallel
 * Add dashboard for visualization
 
