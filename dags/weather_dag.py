@@ -22,7 +22,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 @dag(
     dag_id="weather_dag",
     start_date= datetime(2026,4,20,tz = "Asia/Kolkata"),
-    end_date = datetime(2026,5,5,tz = 'Asia/Kolkata'),
+    end_date = datetime(2026,5,10,tz = 'Asia/Kolkata'),
     schedule = "@daily",
     catchup = False,
     tags=['weather']
